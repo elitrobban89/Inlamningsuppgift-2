@@ -3,6 +3,37 @@
 Java-applikation för en veterinärklinik (`vetclinic`) som använder **JPA/Hibernate** mot en
 **MySQL-databas som körs i Docker**.
 
+## Utgångsdata
+
+En veterinärklinik lagrar sina besök i ett kalkylblad:
+
+| owner_name | owner_phone   | pet_name | species | visit_date | diagnosis        | fee |
+|------------|---------------|----------|---------|------------|------------------|----:|
+| Anna Berg  | 070-111 11 11 | Rex      | Hund    | 2026-01-10 | Vaccination      | 450 |
+| Anna Berg  | 070-111 11 11 | Rex      | Hund    | 2026-03-02 | Klokklippning    | 150 |
+| Anna Berg  | 070-111 11 11 | Misse    | Katt    | 2026-02-14 | Öroninflammation | 600 |
+| Erik Holm  | 070-222 22 22 | Bella    | Hund    | 2026-01-20 | Hälta            | 800 |
+| Erik Holm  | 070-222 22 22 | Bella    | Hund    | 2026-04-05 | Kontroll         | 300 |
+| Sara Lind  | 070-333 33 33 | Pelle    | Kanin   | 2026-02-28 | Tandkontroll     | 350 |
+
+## Del A: Normalisera (LR 2)
+
+### 1. Upprepning av data
+
+> Peka ut en upprepning av data i tabellen ovan och förklara vilket problem den ger vid uppdatering.
+
+**Svar:**
+
+Anna Berg och hennes telefonnummer 070-111 11 11 står på tre rader: två besök med Rex och ett med Misse.
+Numret hör till Anna, inte till djuret eller besöket.
+
+**Problemet vid uppdatering** är att om hon byter nummer måste alla tre raderna ändras.
+Glömmer man en rad, till exempel Misses, har samma person två olika nummer, och man vet inte vilket som stämmer.
+Det kallas en **uppdateringsanomali**.
+
+Om Anna i stället lagras en gång i en egen tabell `owner`, och djuren pekar dit med `owner_id`,
+ändras numret på ett enda ställe.
+
 ## Teknik
 
 | Del         | Version              |
