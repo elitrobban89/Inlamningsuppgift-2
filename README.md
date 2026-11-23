@@ -34,6 +34,10 @@ Det kallas en **uppdateringsanomali**.
 Om Anna i stället lagras en gång i en egen tabell `owner`, och djuren pekar dit med `owner_id`,
 ändras numret på ett enda ställe.
 
+### 2. Skapa databasen
+
+**Svar:** se [`sql/vetclinic.sql`](sql/vetclinic.sql).
+
 ## Teknik
 
 | Del         | Version              |
