@@ -6,7 +6,7 @@ USE vetclinic;
 -- Ägarna: unika ägare
 
 CREATE TABLE owner(
-    owner_id INT AUTO_INCREMENT PRIMARY_KEY,
+    owner_id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     phone VARCHAR(20) NOT NULL UNIQUE
 );
@@ -19,9 +19,12 @@ CREATE TABLE pet(
     FOREIGN KEY (owner_id) REFERENCES owner(owner_id)
 );
 
---Besöken
+-- Besöken
 CREATE TABLE visit(
-    owner_id INT AUTO_INCREMENT PRIMARY_KEY,
-    name VARCHAR(100) NOT NULL,
-    phone VARCHAR(20) NOT NULL UNIQUE
+    visit_id INT AUTO_INCREMENT PRIMARY KEY,
+    pet_id INT NOT NULL,
+    visit_date DATE NOT NULL,
+    diagnosis VARCHAR(100) NOT NULL,
+    fee DECIMAL(8,2) NOT NULL,
+    FOREIGN KEY (pet_id) REFERENCES pet(pet_id)
 );
