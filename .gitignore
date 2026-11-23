@@ -1,0 +1,7 @@
+target/
+.idea/
+*.iml
+out/
+
+# Lösenord och anslutningsuppgifter checkas aldrig in
+.env
