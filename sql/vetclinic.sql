@@ -28,3 +28,32 @@ CREATE TABLE visit(
     fee DECIMAL(8,2) NOT NULL,
     FOREIGN KEY (pet_id) REFERENCES pet(pet_id)
 );
+
+-- Uppgift 3: lägg in datan, varje ägare/djur/besök bara en gång
+-- owner_id: 1 = Anna, 2 = Erik, 3 = Sara, 4 = jag själv
+INSERT INTO owner (name, phone) VALUES
+    ('Anna Berg', '070-111 11 11'),
+    ('Erik Holm', '070-222 22 22'),
+    ('Sara Lind', '070-333 33 33'),
+    ('Robert Andersson', '0739 99 99 99');
+
+-- pet_id: 1 = Rex, 2 = Misse, 3 = Bella, 4 = Pelle, 5 = mitt djur
+INSERT INTO pet (owner_id, name, species) VALUES
+    (1, 'Rex',   'Hund'),
+    (1, 'Misse', 'Katt'),
+    (2, 'Bella', 'Hund'),
+    (3, 'Pelle', 'Kanin'),
+    (4, 'Gekko', 'Kronbärande gecko');
+
+INSERT INTO visit (pet_id, visit_date, diagnosis, fee) VALUES
+    (1, '2026-01-10', 'Vaccination',      450),
+    (1, '2026-03-02', 'Klokklippning',    150),
+    (2, '2026-02-14', 'Öroninflammation', 600),
+    (3, '2026-01-20', 'Hälta',            800),
+    (3, '2026-04-05', 'Kontroll',         300),
+    (4, '2026-02-28', 'Tandkontroll',     350);
+
+-- Kontroll: förväntat owner = 4, pet = 5, visit = 6
+SELECT COUNT(*) AS antal_owner FROM owner;
+SELECT COUNT(*) AS antal_pet   FROM pet;
+SELECT COUNT(*) AS antal_visit FROM visit;
