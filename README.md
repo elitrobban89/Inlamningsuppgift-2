@@ -465,6 +465,80 @@ kolumnnamnen aldrig kan krocka om frågan senare kopplas ihop med fler tabeller.
 I grunden ställer båda klasserna samma fråga till databasen: hämta alla fyra kolumner för alla rader i
 `pet`. Därför blir resultatet detsamma.
 
+### 8. Säker sökning med JDBC
+
+> Skriv en JDBC-metod findPetsByName(String name) och anropa den på ett säkert
+> sätt. Ej string concat!
+
+**Svar:**
+
+Metoden `findPetsByName` finns i klassen `FindPetsJdbc`.
+
+**Varför inte strängkonkatenering?** Om namnet klistras in direkt i SQL-strängen kan den som anropar metoden
+skicka in SQL-kod i stället för ett namn:
+
+```java
+// ❌ Osäkert, används INTE
+String sql = "SELECT pet_id, owner_id, name, species FROM pet WHERE name = '" + name + "'";
+```
+
+Med namnet `' OR '1'='1` blir SQL:en `... WHERE name = '' OR '1'='1'`. Villkoret `'1'='1'` är alltid sant,
+så alla djur listas. Det kallas **SQL-injektion**, och på samma sätt skulle någon kunna läsa eller ändra
+data de inte ska komma åt.
+
+**Lösningen är `PreparedStatement` med `?`.** SQL:en har en platshållare `?` där namnet ska stå, och värdet
+skickas separat med `setString`. SQL:en och värdet går till databasen var för sig, så namnet behandlas alltid
+som **data** och tolkas aldrig som ett SQL-kommando, oavsett vilka tecken det innehåller.
+
+```java
+public static void findPetsByName(String name) throws SQLException {
+    // Strängkonkatenering är farligt (SQL-injektion). Därför används ? och setString,
+    // så att namnet alltid behandlas som data och aldrig tolkas som ett SQL-kommando.
+    String sql = "SELECT pet_id, owner_id, name, species FROM pet WHERE name = ?";
+    try (Connection c = Database.getConnection();
+         PreparedStatement stmt = c.prepareStatement(sql)) {
+        stmt.setString(1, name);
+        try (ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                int petId = rs.getInt("pet_id");
+                int ownerId = rs.getInt("owner_id");
+                String petName = rs.getString("name");
+                String species = rs.getString("species");
+                System.out.println("Pet ID: " + petId + ", Owner ID: " + ownerId + ", Name: " + petName + ", Species: " + species);
+            }
+        }
+    }
+}
+```
+
+- `setString(1, name)` sätter värdet för det första `?` (platshållarna räknas från 1).
+- `setString` måste anropas innan frågan körs. Därför ligger `ResultSet` i ett eget, inre
+  try-with-resources efter `setString`.
+- `Connection`, `PreparedStatement` och `ResultSet` stängs automatiskt av try-with-resources.
+
+**Anropet.** Metoden anropas två gånger från `main`: en gång med ett vanligt namn och en gång med ett
+injektionsförsök, för att visa att det är säkert.
+
+```java
+System.out.println("Söker efter Rex:");
+findPetsByName("Rex");
+
+System.out.println("Försök till SQL-injektion:");
+findPetsByName("' OR '1'='1");
+```
+
+**Resultat:**
+
+```text
+Söker efter Rex:
+Pet ID: 1, Owner ID: 5, Name: Rex, Species: Hund
+Försök till SQL-injektion:
+```
+
+Sökningen på `Rex` hittar rätt djur. Injektionsförsöket hittar **inga** djur. Databasen letade efter ett djur
+som bokstavligen heter `' OR '1'='1`, och något sådant finns inte. Med strängkonkatenering hade samma anrop
+listat alla fem djuren.
+
 ## Teknik
 
 | Del         | Version              |
@@ -483,6 +557,7 @@ src/main/java/org/example/vetclinic/
 ├── Main.java          # Startpunkt – testar anslutningen mot databasen
 ├── ListPetsJdbc.java  # Uppgift 7: listar alla djur med ren JDBC
 ├── ListPetsJpa.java   # Uppgift 7: listar alla djur med JPA/Hibernate
+├── FindPetsJdbc.java  # Uppgift 8: söker djur på namn säkert med PreparedStatement
 └── Pet.java           # Uppgift 7: JPA-entitet för tabellen pet
 src/main/resources/META-INF/
 └── persistence.xml    # JPA-konfiguration (persistence unit "vetclinic")
