@@ -211,6 +211,54 @@ främmande nyckeln.
 
 Ingen av raderna kom in i databasen, så tabellerna har fortfarande 5 djur och 6 besök.
 
+### 6. Transaktion
+
+> Skriv en transaktion som lägger till en ny ägare och flyttar ett djur till den nya ägaren
+> (INSERT och UPDATE). Avsluta med COMMIT.
+
+**Svar:**
+
+Den nya ägaren Gösta Bergling läggs in i `owner` och får `owner_id` 5 av `AUTO_INCREMENT`, eftersom ägarna
+1–4 redan finns. Sedan flyttas Rex (`pet_id` 1) från Anna till Gösta genom att `owner_id` ändras till 5.
+
+Båda satserna ligger mellan `START TRANSACTION` och `COMMIT` och räknas därför som en enhet: antingen sparas
+både den nya ägaren och flytten, eller ingenting. Djuret väljs med primärnyckeln `pet_id` i stället för
+namnet, eftersom namn inte är unika. En `SELECT` före och efter transaktionen visar ändringen.
+
+```sql
+SELECT * FROM pet;
+
+START TRANSACTION;
+INSERT INTO owner (name, phone) VALUES
+    ('Gösta Bergling', '079-999 99 99');
+UPDATE pet SET owner_id = 5 WHERE pet_id = 1; -- Flyttar Rex till Gösta Bergling
+COMMIT;
+
+SELECT * FROM pet;
+```
+
+**Resultat:**
+
+Före transaktionen tillhör Rex Anna Berg (`owner_id` 1):
+
+| pet_id | owner_id | name  | species           |
+|-------:|---------:|-------|-------------------|
+| 1      | **1**    | Rex   | Hund              |
+| 2      | 1        | Misse | Katt              |
+| 3      | 2        | Bella | Hund              |
+| 4      | 3        | Pelle | Kanin             |
+| 5      | 4        | Gekko | Kronbärande gecko |
+
+Efter `COMMIT` tillhör Rex Gösta Bergling (`owner_id` 5). Övriga djur är oförändrade:
+
+| pet_id | owner_id | name  | species           |
+|-------:|---------:|-------|-------------------|
+| 1      | **5**    | Rex   | Hund              |
+| 2      | 1        | Misse | Katt              |
+| 3      | 2        | Bella | Hund              |
+| 4      | 3        | Pelle | Kanin             |
+| 5      | 4        | Gekko | Kronbärande gecko |
+
 ## Teknik
 
 | Del         | Version              |

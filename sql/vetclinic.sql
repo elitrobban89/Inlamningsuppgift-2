@@ -79,3 +79,14 @@ INSERT INTO visit (pet_id, visit_date, diagnosis, fee) VALUES
 -- Bryter mot foreign key ägare som inte finns owner_id 5
 INSERT INTO pet (owner_id, name, species) VALUES
                                               (5, 'Hox',   'Bläckfisk');
+
+-- Uppgift 6:
+-- Lägg till ny ägare och flyttar ett djur till nya ägaren
+
+SELECT * FROM pet;
+START TRANSACTION;
+INSERT INTO owner (name, phone) VALUES
+                                    ('Gösta Bergling', '079-999 99 99');
+UPDATE pet SET owner_id = 5 WHERE pet_id = 1; -- Flyttar Rex till Gösta Bergling ny ägare
+COMMIT;
+SELECT * FROM pet;
