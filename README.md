@@ -391,6 +391,80 @@ Entiteten registreras i `persistence.xml`, annars känner Hibernate inte till de
 Eftersom `hbm2ddl.auto` är `validate` kontrollerar Hibernate vid start att `Pet` stämmer med tabellen
 `pet`. Programmet startar utan fel, så kolumnnamn, typer och primärnyckel stämmer.
 
+**JPA-klassen `ListPetsJpa`:**
+
+Med JPA skriver jag ingen SQL. Jag skriver en JPQL-fråga mot klassen `Pet`, och Hibernate översätter den
+till SQL. Svaret är en lista med färdiga `Pet`-objekt. `EntityManager` stängs av try-with-resources,
+och `Database.close()` i `finally` stänger Hibernate när programmet är klart.
+
+```java
+try (EntityManager em = Database.createEntityManager()) {
+    List<Pet> pets = em.createQuery("SELECT p FROM Pet p", Pet.class).getResultList();
+    for (Pet pet : pets) {
+        System.out.println(pet.getId() + " | " +
+                pet.getOwnerId() + " | " + pet.getName() + " | " + pet.getSpecies());
+    }
+} finally {
+    Database.close();
+}
+```
+
+JPQL-frågan i koden:
+
+```sql
+SELECT p FROM Pet p
+```
+
+SQL:en som Hibernate genererar och skickar till databasen (från loggen, tack vare `show_sql` och `format_sql`):
+
+```sql
+select
+    p1_0.pet_id,
+    p1_0.name,
+    p1_0.owner_id,
+    p1_0.species 
+from
+    pet p1_0
+```
+
+Utskrift, samma fem djur som med JDBC:
+
+```text
+1 | 5 | Rex | Hund
+2 | 1 | Misse | Katt
+3 | 2 | Bella | Hund
+4 | 3 | Pelle | Kanin
+5 | 4 | Gekko | Kronbärande gecko
+```
+
+**Skillnader mellan JDBC och JPA:**
+
+|                          | JDBC (`ListPetsJdbc`)                                  | JPA/Hibernate (`ListPetsJpa`)                                   |
+|--------------------------|--------------------------------------------------------|-----------------------------------------------------------------|
+| Vem skriver SQL:en       | Jag, som en sträng i koden                             | Hibernate, utifrån JPQL-frågan                                  |
+| Frågan gäller            | Tabellen `pet` och dess kolumner                       | Klassen `Pet` och dess objekt                                   |
+| SQL som skickas          | `SELECT pet_id, owner_id, name, species FROM pet`      | `select p1_0.pet_id, p1_0.name, p1_0.owner_id, p1_0.species from pet p1_0` |
+| Alias                    | Inget                                                  | `p1_0` på tabellen och framför varje kolumn                     |
+| Kolumnordning            | Den ordning jag skrev                                  | Id först, sedan fälten i bokstavsordning                        |
+| Resultat                 | `ResultSet` som läses kolumn för kolumn                 | `List<Pet>` med färdiga objekt                                  |
+| Läsa ett värde           | `rs.getString("name")` med kolumnnamnet som text        | `pet.getName()`, en vanlig metod                                |
+| Koppling kolumn ↔ fält   | Görs för hand i koden                                  | Görs av annoteringarna i `Pet`                                  |
+| Se SQL:en                | Står direkt i koden                                    | Syns bara med SQL-loggning (`show_sql`)                         |
+| Uppstart                 | Bara en anslutning öppnas                              | Hibernate startar och validerar entiteterna först               |
+
+Den största skillnaden är vem som gör jobbet. Med JDBC har jag full kontroll och ser exakt vilken SQL som
+körs, men jag måste skriva SQL:en och flytta varje kolumn till Java för hand. Ett stavfel i ett kolumnnamn,
+till exempel `"nmae"`, upptäcks först när programmet körs. Med JPA beskriver jag kopplingen en gång i
+entiteten. Sedan skriver Hibernate SQL:en och skapar objekten åt mig, och `validate` kontrollerar redan
+vid start att entiteten stämmer med tabellen.
+
+Även om JPQL-frågan säger `SELECT p`, alltså hela objektet, räknar Hibernate upp varje kolumn i stället
+för att använda `*`. Den vet exakt vilka fält `Pet` har. Aliaset `p1_0` genererar Hibernate själv, så att
+kolumnnamnen aldrig kan krocka om frågan senare kopplas ihop med fler tabeller.
+
+I grunden ställer båda klasserna samma fråga till databasen: hämta alla fyra kolumner för alla rader i
+`pet`. Därför blir resultatet detsamma.
+
 ## Teknik
 
 | Del         | Version              |
@@ -408,6 +482,7 @@ src/main/java/org/example/vetclinic/
 ├── Database.java      # Ger anslutningar via JPA (EntityManager) och JDBC (Connection), läser inloggning från .env
 ├── Main.java          # Startpunkt – testar anslutningen mot databasen
 ├── ListPetsJdbc.java  # Uppgift 7: listar alla djur med ren JDBC
+├── ListPetsJpa.java   # Uppgift 7: listar alla djur med JPA/Hibernate
 └── Pet.java           # Uppgift 7: JPA-entitet för tabellen pet
 src/main/resources/META-INF/
 └── persistence.xml    # JPA-konfiguration (persistence unit "vetclinic")
