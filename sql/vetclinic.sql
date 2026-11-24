@@ -31,6 +31,7 @@ CREATE TABLE visit(
 
 -- Uppgift 3: lägg in datan, varje ägare/djur/besök bara en gång
 -- owner_id: 1 = Anna, 2 = Erik, 3 = Sara, 4 = jag själv
+-- Då vi har Auto Increment så sköts owner_id automatiskt i create table ovanför
 INSERT INTO owner (name, phone) VALUES
     ('Anna Berg', '070-111 11 11'),
     ('Erik Holm', '070-222 22 22'),
@@ -38,6 +39,7 @@ INSERT INTO owner (name, phone) VALUES
     ('Robert Andersson', '0739 99 99 99');
 
 -- pet_id: 1 = Rex, 2 = Misse, 3 = Bella, 4 = Pelle, 5 = mitt djur
+-- Då vi har Auto Increment så sköts pet_id automatiskt i create table ovanför
 INSERT INTO pet (owner_id, name, species) VALUES
     (1, 'Rex',   'Hund'),
     (1, 'Misse', 'Katt'),
