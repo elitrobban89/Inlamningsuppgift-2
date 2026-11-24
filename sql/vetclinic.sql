@@ -90,3 +90,5 @@ INSERT INTO owner (name, phone) VALUES
 UPDATE pet SET owner_id = 5 WHERE pet_id = 1; -- Flyttar Rex till Gösta Bergling ny ägare
 COMMIT;
 SELECT * FROM pet;
+
+select * from owner;

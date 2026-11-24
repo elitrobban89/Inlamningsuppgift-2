@@ -259,6 +259,38 @@ Efter `COMMIT` tillhör Rex Gösta Bergling (`owner_id` 5). Övriga djur är of�
 | 4      | 3        | Pelle | Kanin             |
 | 5      | 4        | Gekko | Kronbärande gecko |
 
+## Del C: Java mot databasen (LR 5)
+
+### 7. JDBC och JPA
+
+> Skriv en liten Java-klass som listar alla djur med JDBC och en som gör det med
+> JPA/Hibernate (entitet Pet). Slå på SQL-loggning i JPA. Klistra in SQL:en från respektive
+> klass och beskriv eventuella skillnader.
+
+**Svar:**
+
+**Förberedelse i `persistence.xml`:**
+
+SQL-loggningen slås på med två inställningar. `show_sql` gör att Hibernate skriver ut varje SQL-sats
+som skickas till databasen, och `format_sql` delar upp satsen på flera rader så att den blir lättläst:
+
+```xml
+<property name="hibernate.show_sql" value="true"/>
+<property name="hibernate.format_sql" value="true"/>
+```
+
+Jag har också ändrat `hibernate.hbm2ddl.auto` från `update` till `validate`:
+
+```xml
+<property name="hibernate.hbm2ddl.auto" value="validate"/>
+```
+
+Tabellerna skapas av SQL-skriptet i Del A och B, med NOT NULL, UNIQUE, CHECK och främmande nycklar.
+Med `update` får Hibernate ändra tabellerna så att de passar entiteterna. Om ett fält i `Pet` hade fel namn
+skulle Hibernate i tysthet lägga till en ny kolumn i `pet`. Med `validate` kontrollerar Hibernate bara att
+entiteten stämmer med tabellen och stoppar programmet med ett tydligt fel om den inte gör det.
+Databasen ändras aldrig.
+
 ## Teknik
 
 | Del         | Version              |

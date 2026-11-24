@@ -15,10 +15,10 @@
             <property name="jakarta.persistence.jdbc.driver" value="com.mysql.cj.jdbc.Driver"/>
             <!-- URL, användare och lösenord sätts i Database.java från .env / miljövariabler -->
 
-            <property name="hibernate.show_sql" value="true"/>
+            <property name="hibernate.show_sql" value="true"/> <!-- SQL loggning aktiverad-->
             <property name="hibernate.format_sql" value="true"/>
-            <!-- Låt Hibernate skapa/uppdatera tabeller utifrån entiteterna -->
-            <property name="hibernate.hbm2ddl.auto" value="update"/>
+            <!-- Sql scriptet skapar tabellerna-->
+            <property name="hibernate.hbm2ddl.auto" value="validate"/>
         </properties>
     </persistence-unit>
 </persistence>
