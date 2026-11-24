@@ -10,6 +10,8 @@
         <!-- Lägg till entitetsklasser här, t.ex.:
         <class>org.example.vetclinic.entity.Animal</class>
         -->
+        <class>org.example.vetclinic.Pet</class> <!-- Behövs för Hibernate att veta att Pet klassen finns -->
+
 
         <properties>
             <property name="jakarta.persistence.jdbc.driver" value="com.mysql.cj.jdbc.Driver"/>

@@ -291,6 +291,106 @@ skulle Hibernate i tysthet lägga till en ny kolumn i `pet`. Med `validate` kont
 entiteten stämmer med tabellen och stoppar programmet med ett tydligt fel om den inte gör det.
 Databasen ändras aldrig.
 
+**JDBC-anslutning i `Database.java`:**
+
+För att Java ska kunna prata med databasen behövs en anslutning. Med JPA sköter Hibernate den själv via
+`EntityManagerFactory`, och anslutningen är gömd inne i Hibernate. Med ren JDBC måste programmet själv öppna
+en `java.sql.Connection`.
+
+Därför har jag lagt till metoden `Database.getConnection()`. Den läser URL, användare och lösenord från
+`.env` (eller miljövariabler) på samma sätt som JPA-delen, och öppnar anslutningen med
+`DriverManager.getConnection(url, user, password)`. På så sätt använder båda klasserna samma
+inloggningsuppgifter, och lösenordet behöver aldrig skrivas i koden.
+
+`EntityManagerFactory` skapades tidigare direkt när klassen `Database` laddades. Då startade Hibernate
+även när bara JDBC-klassen kördes. Nu skapas den först när `createEntityManager()` anropas första gången
+(*lazy initialization*), så JDBC-klassen startar aldrig Hibernate.
+
+**JDBC-klassen `ListPetsJdbc`:**
+
+Med JDBC skriver jag SQL:en själv som en sträng, kör den och läser resultatet kolumn för kolumn
+ur ett `ResultSet`. Anslutningen, satsen och resultatet ligger i en try-with-resources, så att alla tre
+stängs automatiskt (i omvänd ordning) när blocket är slut.
+
+```java
+String sql = "SELECT pet_id, owner_id, name, species FROM pet";
+try (Connection c = Database.getConnection();
+     PreparedStatement stmt = c.prepareStatement(sql);
+     ResultSet rs = stmt.executeQuery()) {
+    while (rs.next()) {
+        System.out.println(rs.getInt("pet_id") + " | " +
+                rs.getInt("owner_id") + " | " + rs.getString("name") + " | " + rs.getString("species"));
+    }
+}
+```
+
+SQL:en som skickas till databasen är exakt den jag skrev:
+
+```sql
+SELECT pet_id, owner_id, name, species FROM pet
+```
+
+Utskrift (Rex tillhör Gösta, `owner_id` 5, efter transaktionen i uppgift 6):
+
+```text
+1 | 5 | Rex | Hund
+2 | 1 | Misse | Katt
+3 | 2 | Bella | Hund
+4 | 3 | Pelle | Kanin
+5 | 4 | Gekko | Kronbärande gecko
+```
+
+**Entiteten `Pet`:**
+
+För JPA behövs en entitet: en Java-klass som Hibernate kopplar till tabellen `pet`. Varje objekt är en rad
+och varje fält är en kolumn. Annoteringarna speglar `CREATE TABLE pet`:
+
+```java
+@Entity
+@Table(name = "pet")
+public class Pet {
+
+    @Id                                                   // PRIMARY KEY
+    @GeneratedValue(strategy = GenerationType.IDENTITY)   // AUTO_INCREMENT
+    @Column(name = "pet_id")
+    private Integer id;
+
+    @Column(name = "owner_id")
+    private Integer ownerId;
+
+    @Column(name = "name")
+    private String name;
+
+    @Column(name = "species")
+    private String species;
+
+    protected Pet() { }   // JPA kräver en tom konstruktor
+
+    // getters och toString()
+}
+```
+
+| Kolumn i `pet`                    | Fält i `Pet`       | Annoteringar                           |
+|-----------------------------------|--------------------|----------------------------------------|
+| `pet_id INT AUTO_INCREMENT PRIMARY KEY` | `Integer id`  | `@Id`, `@GeneratedValue`, `@Column`    |
+| `owner_id INT NOT NULL`           | `Integer ownerId`  | `@Column(name = "owner_id")`           |
+| `name VARCHAR(50) NOT NULL`       | `String name`      | `@Column`                              |
+| `species VARCHAR(30) NOT NULL`    | `String species`   | `@Column`                              |
+
+Bara primärnyckeln har `@Id` och `@GeneratedValue`. De andra kolumnerna är vanliga värden som sätts när
+djuret läggs in. `@Column(name = "owner_id")` behövs eftersom Java-fältet heter `ownerId` (camelCase),
+medan kolumnen heter `owner_id`. Hibernate kräver en tom konstruktor för att kunna skapa `Pet`-objekt när
+den läser rader från databasen.
+
+Entiteten registreras i `persistence.xml`, annars känner Hibernate inte till den:
+
+```xml
+<class>org.example.vetclinic.Pet</class>
+```
+
+Eftersom `hbm2ddl.auto` är `validate` kontrollerar Hibernate vid start att `Pet` stämmer med tabellen
+`pet`. Programmet startar utan fel, så kolumnnamn, typer och primärnyckel stämmer.
+
 ## Teknik
 
 | Del         | Version              |
@@ -305,10 +405,14 @@ Databasen ändras aldrig.
 
 ```
 src/main/java/org/example/vetclinic/
-├── Database.java      # Skapar EntityManagerFactory, läser inloggning från .env
-└── Main.java          # Startpunkt – testar anslutningen mot databasen
+├── Database.java      # Ger anslutningar via JPA (EntityManager) och JDBC (Connection), läser inloggning från .env
+├── Main.java          # Startpunkt – testar anslutningen mot databasen
+├── ListPetsJdbc.java  # Uppgift 7: listar alla djur med ren JDBC
+└── Pet.java           # Uppgift 7: JPA-entitet för tabellen pet
 src/main/resources/META-INF/
 └── persistence.xml    # JPA-konfiguration (persistence unit "vetclinic")
+sql/
+└── vetclinic.sql      # Skapar databasen, tabellerna och datan (uppgift 2–6)
 .env.example           # Mall för anslutningsuppgifter
 ```
 
@@ -376,15 +480,25 @@ Programmet måste köras från projektroten så att `.env` hittas.
 
 ## Tabeller
 
-Hibernate skapar och uppdaterar tabellerna automatiskt utifrån entitetsklasserna
-(`hibernate.hbm2ddl.auto=update`). En ny entitet läggs till så här:
+Tabellerna och datan skapas av SQL-skriptet [`sql/vetclinic.sql`](sql/vetclinic.sql), inte av Hibernate.
+Kör det mot Docker-containern från projektroten:
 
-1. Skapa en klass med `@Entity`.
+```bash
+docker exec -i mysql mysql -uvetclinic -p --force --default-character-set=utf8mb4 < sql/vetclinic.sql
+```
+
+`--force` behövs eftersom uppgift 5 innehåller två INSERT som ska misslyckas. Utan `--force` stoppar
+`mysql` vid det första felet.
+
+Hibernate kör med `hibernate.hbm2ddl.auto=validate`. Den ändrar alltså aldrig tabellerna, utan kontrollerar
+bara vid start att entiteterna stämmer med dem. En ny entitet läggs till så här:
+
+1. Skapa en klass med `@Entity` och `@Table(name = "...")`, där fälten matchar tabellens kolumner.
 2. Registrera den i `persistence.xml`:
    ```xml
-   <class>org.example.vetclinic.entity.Animal</class>
+   <class>org.example.vetclinic.Pet</class>
    ```
-3. Kör programmet – tabellen skapas i databasen.
+3. Kör programmet. Om entiteten inte stämmer med tabellen stoppar Hibernate med ett valideringsfel.
 
 ## Visa databasen i IntelliJ
 

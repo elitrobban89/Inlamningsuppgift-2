@@ -7,28 +7,36 @@ import jakarta.persistence.Persistence;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Håller en EntityManagerFactory mot MySQL-databasen i Docker.
+ * Ger anslutningar mot MySQL-databasen i Docker, både via JPA (EntityManager)
+ * och via ren JDBC (Connection).
  * Anslutningsuppgifter läses från miljövariabler eller filen .env i projektroten
  * (DB_URL, DB_USER, DB_PASSWORD), så att lösenord aldrig hamnar i git.
  */
 public final class Database {
 
-    private static final EntityManagerFactory EMF = createFactory();
+    // Skapas först när JPA används (lazy), så att JDBC-klasser inte startar Hibernate i onödan
+    private static EntityManagerFactory emf;
 
     private Database() {
     }
 
-    public static EntityManager createEntityManager() {
-        return EMF.createEntityManager();
+    public static synchronized EntityManager createEntityManager() {
+        if (emf == null) {
+            emf = createFactory();
+        }
+        return emf.createEntityManager();
     }
 
-    public static void close() {
-        if (EMF.isOpen()) {
-            EMF.close();
+    public static synchronized void close() {
+        if (emf != null && emf.isOpen()) {
+            emf.close();
         }
     }
 
@@ -76,5 +84,18 @@ public final class Database {
             throw new IllegalStateException("Kunde inte läsa .env", e);
         }
         return values;
+    }
+
+    /**
+     * Nedan kopplar upp Java mot databasen så Java programspråket kan prata med databasen.
+     * @return en öppen anslutning till databasen
+     * @throws SQLException om anslutningen misslyckas
+     */
+    public static Connection getConnection() throws SQLException {
+        Map<String, String> env = loadDotEnv();
+        String url = setting(env, "DB_URL", "jdbc:mysql://localhost:3306/vetclinic");   // URL, med standardvärde
+        String user = setting(env, "DB_USER", null);                                     // användare, måste finnas
+        String password = setting(env, "DB_PASSWORD", null);                                 // lösenord, måste finnas
+        return DriverManager.getConnection(url, user, password);
     }
 }
