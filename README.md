@@ -134,6 +134,40 @@ SELECT COUNT(*) AS antal_visit FROM visit;
 | `pet`   | 5          | Rex, Misse, Bella, Pelle + min gecko |
 | `visit` | 6          | ett per rad i kalkylbladet          |
 
+## Del B: Constraints och transaktioner
+
+### 4. Constraints
+
+> Se till att pet.name är NOT NULL, owner.phone är UNIQUE och visit.fee har ett
+> CHECK på att den är >= 0. Gör det i CREATE TABLE eller med ALTER TABLE.
+
+**Svar:**
+
+`pet.name NOT NULL` och `owner.phone UNIQUE` lade jag in direkt i CREATE TABLE i uppgift 2:
+
+```sql
+name VARCHAR(50) NOT NULL,          -- i pet
+phone VARCHAR(20) NOT NULL UNIQUE   -- i owner
+```
+
+Det som saknades var att avgiften inte får vara negativ. Den lade jag till med ALTER TABLE.
+Constrainten har ett eget namn, `chk_visit_fee`, så att det syns i felmeddelandet vilken regel som bröts.
+
+```sql
+ALTER TABLE visit
+    ADD CONSTRAINT chk_visit_fee CHECK (fee >= 0);
+```
+
+**Resultat:**
+
+`SHOW CREATE TABLE` visar att alla tre reglerna finns i databasen:
+
+```text
+owner:  `phone` varchar(20) NOT NULL,  UNIQUE KEY `phone` (`phone`)
+pet:    `name` varchar(50) NOT NULL
+visit:  CONSTRAINT `chk_visit_fee` CHECK ((`fee` >= 0))
+```
+
 ## Teknik
 
 | Del         | Version              |

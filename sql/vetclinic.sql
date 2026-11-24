@@ -59,3 +59,14 @@ INSERT INTO visit (pet_id, visit_date, diagnosis, fee) VALUES
 SELECT COUNT(*) AS antal_owner FROM owner;
 SELECT COUNT(*) AS antal_pet   FROM pet;
 SELECT COUNT(*) AS antal_visit FROM visit;
+
+-- Uppgift 4: constraints
+-- pet.name NOT NULL och owner.phone UNIQUE finns redan i CREATE TABLE ovan.
+-- Det som saknas är att avgiften inte får vara negativ:
+ALTER TABLE visit
+    ADD CONSTRAINT chk_visit_fee CHECK (fee >= 0);
+
+-- Kontroll: visa hur tabellerna ser ut nu
+SHOW CREATE TABLE owner;
+SHOW CREATE TABLE pet;
+SHOW CREATE TABLE visit;
