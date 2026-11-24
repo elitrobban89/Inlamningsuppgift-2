@@ -70,3 +70,12 @@ ALTER TABLE visit
 SHOW CREATE TABLE owner;
 SHOW CREATE TABLE pet;
 SHOW CREATE TABLE visit;
+
+-- Uppgift 5:
+-- Bryter mot check fee
+INSERT INTO visit (pet_id, visit_date, diagnosis, fee) VALUES
+(1, '2026-11-10', 'Vaccination',      -200);
+
+-- Bryter mot foreign key ägare som inte finns owner_id 5
+INSERT INTO pet (owner_id, name, species) VALUES
+                                              (5, 'Hox',   'Bläckfisk');

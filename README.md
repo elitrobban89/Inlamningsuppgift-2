@@ -168,6 +168,49 @@ pet:    `name` varchar(50) NOT NULL
 visit:  CONSTRAINT `chk_visit_fee` CHECK ((`fee` >= 0))
 ```
 
+### 5. Bryt mot reglerna
+
+> Försök bryta mot två av reglerna (en FOREIGN KEY och en CHECK eller UNIQUE).
+> Redovisa felmeddelanden.
+
+**Svar:**
+
+Jag bröt mot CHECK-regeln på `visit.fee` genom att lägga in ett besök med negativ avgift,
+och mot främmande nyckeln `pet.owner_id` genom att lägga in ett djur som tillhör en ägare som inte finns
+(ägarna har id 1–4). I båda satserna är allt annat korrekt, så att felet bara gäller den regel som testas.
+
+Satserna ska misslyckas, och `mysql` stoppar normalt vid första felet. Därför körs skriptet med `--force`,
+så att det fortsätter och visar båda felmeddelandena.
+
+```sql
+-- Bryter mot CHECK: avgiften får inte vara negativ
+INSERT INTO visit (pet_id, visit_date, diagnosis, fee) VALUES
+    (1, '2026-11-10', 'Vaccination', -200);
+
+-- Bryter mot FOREIGN KEY: ägare med owner_id 5 finns inte
+INSERT INTO pet (owner_id, name, species) VALUES
+    (5, 'Hox', 'Bläckfisk');
+```
+
+**Resultat:**
+
+```text
+ERROR 3819 (HY000) at line 76: Check constraint 'chk_visit_fee' is violated.
+```
+
+Databasen stoppar besöket eftersom -200 bryter mot `chk_visit_fee` (`fee >= 0`) från uppgift 4.
+
+```text
+ERROR 1452 (23000) at line 80: Cannot add or update a child row: a foreign key constraint fails
+(`vetclinic`.`pet`, CONSTRAINT `pet_ibfk_1` FOREIGN KEY (`owner_id`) REFERENCES `owner` (`owner_id`))
+```
+
+Databasen stoppar djuret eftersom `owner_id` 5 inte finns i `owner`. "Child row" är raden i `pet`,
+som måste peka på en befintlig rad i föräldertabellen `owner`. `pet_ibfk_1` är namnet som MySQL själv gav
+främmande nyckeln.
+
+Ingen av raderna kom in i databasen, så tabellerna har fortfarande 5 djur och 6 besök.
+
 ## Teknik
 
 | Del         | Version              |
