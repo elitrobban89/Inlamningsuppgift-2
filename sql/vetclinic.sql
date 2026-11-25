@@ -92,3 +92,5 @@ COMMIT;
 SELECT * FROM pet;
 
 select * from owner;
+
+-- Del D (uppgift 9) ligger i sql/del_d.sql och körs efter den här filen.

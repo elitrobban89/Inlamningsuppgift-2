@@ -539,6 +539,144 @@ Sökningen på `Rex` hittar rätt djur. Injektionsförsöket hittar **inga** dju
 som bokstavligen heter `' OR '1'='1`, och något sådant finns inte. Med strängkonkatenering hade samma anrop
 listat alla fem djuren.
 
+## Del D: Fördjupning (krävs för VG)
+
+### 9. Tabell för arter
+
+> Skapa en tabell species och ersätt textkolumnen i pet med en främmande nyckel. Flytta
+> över befintlig data med INSERT ... SELECT och UPDATE. Förklara vilken anomali det
+> förhindrar.
+
+**Svar:**
+
+Innan ändringen stod arten som fritext i `pet.species`. Samma värde upprepades därför på flera rader,
+t.ex. "Hund" både på Rex och på Bella. Det ger en **uppdateringsanomali**: om kliniken vill byta namn på
+en art, t.ex. "Kanin" till "Tamkanin", måste varje djur av den arten ändras. Missas en rad finns
+plötsligt två olika namn på samma art. Fritexten gör det också möjligt att skriva in samma art på olika
+sätt, t.ex. "Hund", "hund" och "Hundd", som databasen då ser som tre olika arter. Det gör att t.ex. en
+räkning av antal hundar blir fel.
+
+Efter ändringen finns varje art **bara en gång**, i tabellen `species`, och `pet` pekar på den med
+`species_id`. Ett namnbyte görs på en enda rad, och alla djur av den arten följer automatiskt med.
+`UNIQUE` på `species.name` hindrar dubbletter av samma art. Den främmande nyckeln gör att ett djur bara
+kan få en art som faktiskt finns, och `NOT NULL` gör att alla djur måste ha en art.
+
+Själva flytten gjordes i fem steg:
+
+1. Skapa `species` med primärnyckel och ett unikt namn.
+2. Kopiera arterna från `pet` med `INSERT ... SELECT DISTINCT`. `DISTINCT` gör att "Hund" bara kommer
+   med en gång, trots att två djur är hundar.
+3. Lägg till kolumnen `species_id` i `pet`. Den får inte vara `NOT NULL` ännu, eftersom de befintliga
+   djuren saknar värde i den nya kolumnen.
+4. Fyll i `species_id` med en `UPDATE` som JOIN:ar `species` på artens namn.
+5. Gör `species_id` till `NOT NULL`, lägg till den främmande nyckeln och ta bort textkolumnen `species`.
+
+SQL:en ligger i en egen fil, [`sql/del_d.sql`](sql/del_d.sql), som körs **efter** `vetclinic.sql`.
+Java-klasserna i uppgift 7–8 läser `pet.species` och hör därför till schemat före Del D. För att köra dem
+igen körs bara `vetclinic.sql` på nytt.
+
+```sql
+USE vetclinic;
+
+CREATE TABLE species(
+    species_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(30) NOT NULL UNIQUE
+);
+
+-- Lägg in unika arter från pet
+INSERT INTO species (name)
+    SELECT DISTINCT species FROM pet;
+
+SELECT * FROM species;
+
+ALTER TABLE pet
+    ADD COLUMN species_id INT;
+
+-- Koppla djur till rätt art genom att matcha texten
+UPDATE pet
+    JOIN species ON pet.species = species.name
+SET pet.species_id = species.species_id;
+
+SELECT * FROM pet;
+
+-- Främmande nyckel och ta bort textkolumnen
+ALTER TABLE pet
+    MODIFY species_id INT NOT NULL,
+    ADD FOREIGN KEY (species_id) REFERENCES species(species_id),
+    DROP COLUMN species;
+
+SHOW CREATE TABLE pet;
+SELECT * FROM pet;
+```
+
+**Resultat:**
+
+`species` efter `INSERT ... SELECT`, med fyra arter som var och en finns en gång:
+
+| species_id | name              |
+|-----------:|-------------------|
+| 1          | Hund              |
+| 3          | Kanin             |
+| 2          | Katt              |
+| 4          | Kronbärande gecko |
+
+(MySQL listar raderna i bokstavsordning, eftersom `SELECT *` här läser via det unika indexet på `name`.)
+
+`pet` efter `UPDATE`. Varje djur har fått sitt `species_id`, och Rex och Bella pekar båda på 1 (Hund):
+
+| pet_id | owner_id | name  | species           | species_id |
+|-------:|---------:|-------|-------------------|-----------:|
+| 1      | 5        | Rex   | Hund              | **1**      |
+| 2      | 1        | Misse | Katt              | **2**      |
+| 3      | 2        | Bella | Hund              | **1**      |
+| 4      | 3        | Pelle | Kanin             | **3**      |
+| 5      | 4        | Gekko | Kronbärande gecko | **4**      |
+
+`SHOW CREATE TABLE pet` efter sista `ALTER TABLE`. Textkolumnen `species` är borta, och `species_id` är
+`NOT NULL` med en främmande nyckel till `species`:
+
+```sql
+CREATE TABLE `pet` (
+  `pet_id` int NOT NULL AUTO_INCREMENT,
+  `owner_id` int NOT NULL,
+  `name` varchar(50) NOT NULL,
+  `species_id` int NOT NULL,
+  PRIMARY KEY (`pet_id`),
+  KEY `owner_id` (`owner_id`),
+  KEY `species_id` (`species_id`),
+  CONSTRAINT `pet_ibfk_1` FOREIGN KEY (`owner_id`) REFERENCES `owner` (`owner_id`),
+  CONSTRAINT `pet_ibfk_2` FOREIGN KEY (`species_id`) REFERENCES `species` (`species_id`)
+)
+```
+
+Slutligt innehåll i `pet`:
+
+| pet_id | owner_id | name  | species_id |
+|-------:|---------:|-------|-----------:|
+| 1      | 5        | Rex   | 1          |
+| 2      | 1        | Misse | 2          |
+| 3      | 2        | Bella | 1          |
+| 4      | 3        | Pelle | 3          |
+| 5      | 4        | Gekko | 4          |
+
+### 10. När man inte normaliserar
+
+> Förklara kort när man medvetet kan välja att *inte* normalisera, med ett exempel.
+
+**Svar:**
+
+Normalisering skyddar mot att samma data lagras flera gånger i onödan. Priset är att data sprids ut över
+fler tabeller, och för att få ihop den behövs många JOIN:ar. Det drar ned prestandan, särskilt i stora
+databaser där samma data läses ofta. Ibland väljer man därför medvetet att lagra en kopia av data, när
+snabbare läsning eller ett korrekt historiskt värde är viktigare än att undvika upprepning.
+
+**Exempel: priset på ett besök.** Tänk dig att kliniken har en prislista med en tabell för behandlingar,
+där en vaccination kostar 450 kr. Helt normaliserat skulle ett besök bara peka på behandlingen och
+hämta priset därifrån. Men priser ändras med tiden. Om vaccinationen blir 500 kr nästa år skulle då
+alla gamla besök och fakturor plötsligt visa fel belopp. Därför sparar man priset som en
+**ögonblicksbild** direkt på besöket, som `visit.fee` i den här databasen. Då är det lätt att räkna ut
+fakturan, och den visar alltid vad kunden faktiskt betalade vid besöket, även om priset ändras senare.
+
 ## Teknik
 
 | Del         | Version              |
@@ -562,7 +700,8 @@ src/main/java/org/example/vetclinic/
 src/main/resources/META-INF/
 └── persistence.xml    # JPA-konfiguration (persistence unit "vetclinic")
 sql/
-└── vetclinic.sql      # Skapar databasen, tabellerna och datan (uppgift 2–6)
+├── vetclinic.sql      # Skapar databasen, tabellerna och datan (uppgift 2–6)
+└── del_d.sql          # Uppgift 9: tabellen species, körs efter vetclinic.sql
 .env.example           # Mall för anslutningsuppgifter
 ```
 
@@ -639,6 +778,15 @@ docker exec -i mysql mysql -uvetclinic -p --force --default-character-set=utf8mb
 
 `--force` behövs eftersom uppgift 5 innehåller två INSERT som ska misslyckas. Utan `--force` stoppar
 `mysql` vid det första felet.
+
+Del D (uppgift 9) körs efteråt med [`sql/del_d.sql`](sql/del_d.sql):
+
+```bash
+docker exec -i mysql mysql -uvetclinic -p --default-character-set=utf8mb4 < sql/del_d.sql
+```
+
+Den tar bort kolumnen `pet.species`. Java-programmen i uppgift 7–8 fungerar därför bara mot databasen
+före Del D, så kör `vetclinic.sql` igen innan du kör dem.
 
 Hibernate kör med `hibernate.hbm2ddl.auto=validate`. Den ändrar alltså aldrig tabellerna, utan kontrollerar
 bara vid start att entiteterna stämmer med dem. En ny entitet läggs till så här:
